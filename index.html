@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NontonYuk</title>
+<style>
+:root{--bg:#141414;--fg:#f2f2f2;--mut:#a3a3a3;--red:#e50914;--card:#222;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;align-items:center;gap:8px;padding:12px 4%;background:linear-gradient(#000c,#0000)}
+.logo{color:var(--red);font-weight:800;font-size:20px;letter-spacing:1px}
+header input,header select{background:#000a;border:1px solid #555;color:var(--fg);padding:8px 10px;border-radius:6px}
+header input{margin-left:auto;width:min(180px,34%)}
+header select{max-width:34%}
+.hero{min-height:56vh;display:flex;flex-direction:column;justify-content:flex-end;gap:12px;padding:80px 4% 36px;margin-top:-56px;background:linear-gradient(0deg,var(--bg),#0000 60%),linear-gradient(120deg,#5b0a1a,#1b2a5e 70%)}
+.hero h1{margin:0;font-size:clamp(30px,8vw,56px)}
+.hero p{margin:0;max-width:520px;color:#ddd}
+button{border:0;border-radius:6px;padding:10px 20px;font-weight:700;font-size:15px;cursor:pointer}
+.play{background:#fff;color:#000}.play:disabled{opacity:.5}
+h2{font-size:18px;margin:22px 4% 8px}
+.row{display:flex;gap:8px;overflow-x:auto;padding:0 4% 8px;scroll-snap-type:x proximity}
+.card{position:relative;overflow:hidden;flex:0 0 130px;aspect-ratio:2/3;border-radius:6px;cursor:pointer;scroll-snap-align:start;transition:transform .2s;background:#333}
+.card:hover{transform:scale(1.06)}
+.card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.card .cap{position:absolute;left:0;right:0;bottom:0;padding:22px 8px 8px;font-weight:700;font-size:13px;background:linear-gradient(#0000,#000c)}
+.note{margin:24px 4%;color:var(--mut)}
+.modal{position:fixed;inset:0;background:#000d;display:none;align-items:center;justify-content:center;z-index:10;padding:16px}
+.modal.on{display:flex}
+.box{background:var(--card);border-radius:10px;width:min(640px,100%);max-height:100%;overflow-y:auto}
+video{display:block;width:100%;aspect-ratio:16/9;background:#000}
+.txt{padding:16px}.txt h3{margin:0 0 4px}.txt small{color:var(--mut)}.txt p{margin:10px 0 14px;color:#ccc}
+.x{background:#444;color:#fff}
+.ad{margin:16px 4%;min-height:70px;border:1px dashed #666;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;color:var(--mut);font-size:13px;background:#ffffff0d;text-align:center;padding:8px}.ad b{font-size:10px;letter-spacing:2px;color:#777}.box .ad{margin:0;border-radius:0;border-width:0 0 1px}
+footer{padding:28px 4%;color:var(--mut);font-size:12px}
+</style>
+</head>
+<body>
+<header><span class="logo">NONTONYUK</span><input id="q" aria-label="Search"><select id="lg" aria-label="Bahasa / Language"><option value="id">Indonesia</option><option value="en">English</option><option value="es">Español</option></select></header>
+<section class="hero">
+<div class="ad" style="margin:0 0 8px"><b data-i="ad"></b><span data-i="ad_top"></span></div>
+<h1 data-i="hero_t"></h1>
+<p data-i="hero_p"></p>
+<div><button class="play" id="hp" data-i="play"></button></div>
+</section>
+<div class="ad"><b data-i="ad"></b><span data-i="ad_mid"></span></div>
+<main id="rows"></main>
+<div class="ad"><b data-i="ad"></b><span data-i="ad_bot"></span></div>
+<footer data-i="foot"></footer>
+
+<div class="modal" id="m">
+<div class="box">
+<div class="ad"><b data-i="ad"></b><span data-i="ad_modal"></span></div>
+<video id="v" controls playsinline preload="metadata"></video>
+<div class="txt"><h3 id="mt"></h3><small id="mm"></small><p id="ms"></p><button class="x" id="mc" data-i="close"></button></div>
+</div></div>
+
+<script>
+// Alamat Worker Cloudflare (halaman admin + daftar film)
+var API="https://nontonyuk-admin.filmpendek.workers.dev";
+
+var D={
+id:{search:"Cari judul…",hero_t:"Film tayang hari ini",hero_p:"Nonton film gratis hanya di sini, di NontonYuk",play:"▶ Putar",ad:"IKLAN",ad_top:"Spanduk di atas judul (970×90)",ad_mid:"Spanduk beranda atas (970×90)",ad_bot:"Spanduk beranda bawah (970×90)",ad_modal:"Banner di atas video (728×90)",close:"Tutup",syn:"Belum ada sinopsis.",foot:"© NontonYuk",none:"Tidak ada hasil.",latest:"Terbaru",loading:"Memuat film…",empty:"Belum ada film yang tayang.",err:"Gagal memuat daftar film. Coba muat ulang halaman."},
+en:{search:"Search titles…",hero_t:"Movies showing today",hero_p:"Watch free movies only here, on NontonYuk",play:"▶ Play",ad:"AD",ad_top:"Banner above the title (970×90)",ad_mid:"Homepage top banner (970×90)",ad_bot:"Homepage bottom banner (970×90)",ad_modal:"Banner above the video (728×90)",close:"Close",syn:"No synopsis yet.",foot:"© NontonYuk",none:"No results.",latest:"Latest",loading:"Loading movies…",empty:"No movies yet.",err:"Couldn’t load the movie list. Please reload the page."},
+es:{search:"Buscar títulos…",hero_t:"Películas en cartelera hoy",hero_p:"Mira películas gratis solo aquí, en NontonYuk",play:"▶ Reproducir",ad:"ANUNCIO",ad_top:"Banner sobre el título (970×90)",ad_mid:"Banner superior de inicio (970×90)",ad_bot:"Banner inferior de inicio (970×90)",ad_modal:"Banner sobre el video (728×90)",close:"Cerrar",syn:"Aún no hay sinopsis.",foot:"© NontonYuk",none:"Sin resultados.",latest:"Recientes",loading:"Cargando películas…",empty:"Aún no hay películas.",err:"No se pudo cargar la lista. Recarga la página."}
+};
+var G=["#8e2de2,#4a00e0","#f12711,#f5af19","#134e5e,#71b280","#232526,#414345","#c31432,#240b36","#0f2027,#2c5364","#ff512f,#dd2476","#1d976c,#93f9b9"];
+var lang="id",films=[],state="loading";
+function $(i){return document.getElementById(i)}
+function t(k){return D[lang][k]}
+function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+
+function card(f,i){
+  var c=el("div","card");
+  if(f.poster){var im=el("img");im.loading="lazy";im.alt=f.title;im.src=API+"/media/"+f.poster;c.appendChild(im)}
+  else c.style.background="linear-gradient(160deg,"+G[i%G.length]+")";
+  c.appendChild(el("div","cap",f.title));
+  c.onclick=function(){openM(f)};
+  return c
+}
+function addRow(box,title,items){
+  if(!items.length)return;
+  box.appendChild(el("h2",null,title));
+  var r=el("div","row");
+  items.forEach(function(f,i){r.appendChild(card(f,i))});
+  box.appendChild(r)
+}
+function render(){
+  var box=$("rows");box.textContent="";
+  if(state==="loading"){box.appendChild(el("p","note",t("loading")));return}
+  if(state==="err"){box.appendChild(el("p","note",t("err")));return}
+  if(!films.length){box.appendChild(el("p","note",t("empty")));return}
+  var f=$("q").value.trim().toLowerCase();
+  var list=films.filter(function(x){return !f||x.title.toLowerCase().indexOf(f)>-1});
+  if(!list.length){box.appendChild(el("p","note",t("none")));return}
+  addRow(box,t("latest"),list);
+  var order=[],map={};
+  list.forEach(function(x){
+    (x.genre||"").split(/[,\/]/).forEach(function(g){
+      g=g.trim();if(!g)return;
+      var k=g.toLowerCase();
+      if(!map[k]){map[k]={n:g.charAt(0).toUpperCase()+g.slice(1),a:[]};order.push(k)}
+      map[k].a.push(x)
+    })
+  });
+  order.forEach(function(k){addRow(box,map[k].n,map[k].a)})
+}
+function apply(){
+  document.documentElement.lang=lang;
+  document.querySelectorAll("[data-i]").forEach(function(e){e.textContent=t(e.getAttribute("data-i"))});
+  $("q").placeholder=t("search");render()
+}
+function openM(f){
+  var v=$("v");
+  v.poster=f.poster?API+"/media/"+f.poster:"";
+  v.src=API+"/media/"+f.video;
+  $("mt").textContent=f.title;
+  $("mm").textContent=[f.year,f.genre].filter(Boolean).join(" · ");
+  $("ms").textContent=f.synopsis||t("syn");
+  $("m").classList.add("on")
+}
+function closeM(){
+  var v=$("v");v.pause();v.removeAttribute("src");v.removeAttribute("poster");v.load();
+  $("m").classList.remove("on")
+}
+$("mc").onclick=closeM;
+$("m").addEventListener("click",function(e){if(e.target===this)closeM()});
+$("hp").onclick=function(){if(films[0])openM(films[0])};
+$("q").addEventListener("input",render);
+$("lg").addEventListener("change",function(e){lang=e.target.value;try{localStorage.setItem("lang",lang)}catch(x){}apply()});
+try{var s=localStorage.getItem("lang");if(s&&D[s]){lang=s;$("lg").value=s}}catch(x){}
+apply();
+
+fetch(API+"/api/films")
+  .then(function(r){if(!r.ok)throw 0;return r.json()})
+  .then(function(a){films=a;state="ok";$("hp").disabled=!films.length;render()})
+  .catch(function(){state="err";render()});
+</script>
+</body>
+</html>
